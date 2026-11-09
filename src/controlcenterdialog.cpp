@@ -21,6 +21,7 @@
 #include <KWindowSystem>
 #include <KX11Extras>
 #include <NETWM>
+#include <QGuiApplication>
 
 ControlCenterDialog::ControlCenterDialog(QQuickWindow *parent)
     : QQuickWindow(parent)
@@ -32,6 +33,17 @@ ControlCenterDialog::ControlCenterDialog(QQuickWindow *parent)
 
 void ControlCenterDialog::open()
 {
+    // Wayland: a popup needs a parent surface (xdg_popup), placed relative to it.
+    // The bar is the panel these popups open from.
+    if (KWindowSystem::isPlatformWayland() && !transientParent()) {
+        for (QWindow *w : QGuiApplication::topLevelWindows()) {
+            if (w != this && w->inherits("StatusBar")) {
+                setTransientParent(w);
+                break;
+            }
+        }
+    }
+
     setVisible(true);
     setMouseGrabEnabled(true);
     setKeyboardGrabEnabled(true);
@@ -51,7 +63,8 @@ bool ControlCenterDialog::eventFilter(QObject *object, QEvent *event)
             ControlCenterDialog::setVisible(false);
         }
     } else if (event->type() == QEvent::Show) {
-        KX11Extras::setState(winId(), NET::SkipTaskbar | NET::SkipPager | NET::SkipSwitcher);
+        if (KWindowSystem::isPlatformX11())
+            KX11Extras::setState(winId(), NET::SkipTaskbar | NET::SkipPager | NET::SkipSwitcher);
     } else if (event->type() == QEvent::Hide) {
         setMouseGrabEnabled(false);
         setKeyboardGrabEnabled(false);

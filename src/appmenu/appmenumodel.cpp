@@ -34,6 +34,7 @@
 #include <KX11Extras>
 
 #include "../libdbusmenuqt/dbusmenuimporter.h"
+#include "../windowbackend.h"
 #include <QDebug>
 
 #include <xcb/xcb.h>
@@ -109,8 +110,13 @@ AppMenuModel::AppMenuModel(QObject *parent)
     });
 
     // Active window
-    connect(KX11Extras::self(), &KX11Extras::activeWindowChanged, this, &AppMenuModel::onActiveWindowChanged, Qt::QueuedConnection);
-    connect(KX11Extras::self(), &KX11Extras::windowChanged, this, &AppMenuModel::onActiveWindowChanged, Qt::QueuedConnection);
+    if (KWindowSystem::isPlatformX11()) {
+        connect(KX11Extras::self(), &KX11Extras::activeWindowChanged, this, &AppMenuModel::onActiveWindowChanged, Qt::QueuedConnection);
+        connect(KX11Extras::self(), &KX11Extras::windowChanged, this, &AppMenuModel::onActiveWindowChanged, Qt::QueuedConnection);
+    } else {
+        // Wayland: KWin tells the menu of each window (org_kde_plasma_window)
+        connect(WindowBackend::self(), &WindowBackend::appMenuChanged, this, &AppMenuModel::onActiveWindowChanged, Qt::QueuedConnection);
+    }
     onActiveWindowChanged();
 
     m_serviceWatcher->setConnection(QDBusConnection::sessionBus());
@@ -179,8 +185,15 @@ void AppMenuModel::onActiveWindowChanged()
 //    const QString objectPath = info.applicationMenuObjectPath();
 //    const QString serviceName = info.applicationMenuServiceName();
 
-    const QString objectPath = QString::fromUtf8(getWindowPropertyString(KX11Extras::activeWindow(), "_KDE_NET_WM_APPMENU_OBJECT_PATH"));
-    const QString serviceName = QString::fromUtf8(getWindowPropertyString(KX11Extras::activeWindow(), "_KDE_NET_WM_APPMENU_SERVICE_NAME"));
+    QString objectPath;
+    QString serviceName;
+    if (KWindowSystem::isPlatformX11()) {
+        objectPath = QString::fromUtf8(getWindowPropertyString(KX11Extras::activeWindow(), "_KDE_NET_WM_APPMENU_OBJECT_PATH"));
+        serviceName = QString::fromUtf8(getWindowPropertyString(KX11Extras::activeWindow(), "_KDE_NET_WM_APPMENU_SERVICE_NAME"));
+    } else {
+        objectPath = WindowBackend::self()->appMenuObjectPath();
+        serviceName = WindowBackend::self()->appMenuServiceName();
+    }
 
     if (!objectPath.isEmpty() && !serviceName.isEmpty()) {
         setMenuAvailable(true);

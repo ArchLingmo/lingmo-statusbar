@@ -24,6 +24,10 @@
 #include <QTimer>
 #include "activity.h"
 
+namespace LayerShellQt {
+class Window;
+}
+
 class StatusBar : public QQuickView
 {
     Q_OBJECT
@@ -67,6 +71,8 @@ private:
     Activity *m_acticity;
     bool m_twentyFourTime;
     int m_barHeight;
+    // Wayland: the bar's layer surface (null on X11)
+    LayerShellQt::Window *m_layerShell = nullptr;
 };
 
 #endif // STATUSBAR_H

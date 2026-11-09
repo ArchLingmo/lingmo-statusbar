@@ -37,6 +37,8 @@
 #include <KX11Extras>
 #include <KWindowEffects>
 
+#include <LayerShellQt/Window>
+
 static const int s_defaultHeight = 28;
 static const int s_minHeight = 24;
 static const int s_maxHeight = 40;
@@ -54,8 +56,23 @@ StatusBar::StatusBar(QQuickView *parent)
     setFlags(Qt::FramelessWindowHint | Qt::WindowDoesNotAcceptFocus);
     setColor(Qt::transparent);
 
-    KX11Extras::setOnDesktop(winId(), NET::OnAllDesktops);
-    KX11Extras::setType(winId(), NET::Dock);
+    if (KWindowSystem::isPlatformWayland()) {
+        // A panel in the layer above the windows, across the top of its screen,
+        // reserving its height (the X11 strut)
+        m_layerShell = LayerShellQt::Window::get(this);
+        m_layerShell->setScope(QStringLiteral("lingmo-statusbar"));
+        m_layerShell->setLayer(LayerShellQt::Window::LayerTop);
+        m_layerShell->setAnchors(LayerShellQt::Window::Anchors(LayerShellQt::Window::AnchorTop
+                                                               | LayerShellQt::Window::AnchorLeft
+                                                               | LayerShellQt::Window::AnchorRight));
+        m_layerShell->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+        m_layerShell->setActivateOnShow(false);
+        m_layerShell->setExclusiveZone(m_barHeight);
+        m_layerShell->setScreen(qApp->primaryScreen());
+    } else {
+        KX11Extras::setOnDesktop(winId(), NET::OnAllDesktops);
+        KX11Extras::setType(winId(), NET::Dock);
+    }
 
     new StatusbarAdaptor(this);
     new AppMenu(this);
@@ -111,6 +128,16 @@ void StatusBar::followPrimaryScreen()
     QScreen *primary = qApp->primaryScreen();
     if (!primary)
         return;
+    if (m_layerShell && m_layerShell->screen() != primary) {
+        // The output of a layer surface is fixed when it is created
+        const bool visible = isVisible();
+        setVisible(false);
+        setScreen(primary);
+        m_layerShell->setScreen(primary);
+        updateGeometry();
+        setVisible(visible);
+        return;
+    }
     if (screen() != primary)
         setScreen(primary);
     updateGeometry();
@@ -173,6 +200,11 @@ void StatusBar::updateGeometry()
 
 void StatusBar::updateViewStruts()
 {
+    if (m_layerShell) {
+        m_layerShell->setExclusiveZone(m_barHeight);
+        return;
+    }
+
     const QRect wholeScreen(QPoint(0, 0), (qApp->primaryScreen() ? qApp->primaryScreen() : screen())->virtualSize());
     const QRect rect = geometry();
     const int topOffset = (qApp->primaryScreen() ? qApp->primaryScreen() : screen())->geometry().top();
@@ -199,6 +231,10 @@ void StatusBar::updateViewStruts()
 
 void StatusBar::initState()
 {
+    // Wayland: the bar is in the Top layer and the launcher in Overlay, above it
+    if (m_layerShell)
+        return;
+
     // Remain below the face launchpad.
     KX11Extras::setState(winId(), m_acticity->launchPad() ? NET::KeepBelow : NET::KeepAbove);
 }

@@ -15,6 +15,10 @@ find_package(Qt6 CONFIG REQUIRED Widgets DBus Gui Concurrent LinguistTools Quick
 find_package(LingmoUI3 REQUIRED)
 find_package(KF6WindowSystem REQUIRED)
 find_package(XCB REQUIRED)
+# Wayland session: the bar is a layer-shell panel and follows the active window
+# through org_kde_plasma_window_management
+find_package(LayerShellQt REQUIRED)
+find_package(KWayland REQUIRED)
 
 set(SRCS
     src/main.cpp
@@ -25,6 +29,9 @@ set(SRCS
     src/appearance.cpp
     src/processprovider.cpp
     src/activity.cpp
+    src/windowbackend.cpp
+    src/windowbackend_x11.cpp
+    src/windowbackend_wayland.cpp
     src/capplications.cpp
     src/notifications.cpp
     src/spotlightshortcut.cpp
@@ -121,6 +128,8 @@ target_link_libraries(lingmo-statusbar
   KF6::WindowSystem
   LingmoUI3
   XCB::XCB
+  LayerShellQt::Interface
+  Plasma::KWaylandClient
 )
 
 file(GLOB TS_FILES translations/*.ts)
@@ -134,6 +143,8 @@ add_custom_target(translations ALL DEPENDS ${QM_FILES} SOURCES ${ts_files_replac
 
 install(TARGETS lingmo-statusbar RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(PROGRAMS src/island/lingmo-island DESTINATION ${CMAKE_INSTALL_BINDIR})
+# Not shown in menus: tells KWin (Wayland) which privileged interfaces the bar uses
+install(FILES data/lingmo-statusbar.desktop DESTINATION share/applications)
 
 # Lingmo Intents: island.start / island.update / island.finish on com.lingmo.Island /Intents
 find_package(LingmoIntents 1.0 QUIET)

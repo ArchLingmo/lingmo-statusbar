@@ -22,6 +22,7 @@
 
 #include <QApplication>
 #include <QDebug>
+#include <QIcon>
 
 #include <KWindowSystem>
 
@@ -31,6 +32,29 @@ static QStringList noColorOverlayList = {
     "35682", // obs studio
     "lark_status_icon_1"
 };
+
+// Wayland: tray icons drawn like the bar's own, monochrome in the text colour
+// (template icons, as on macOS and HarmonyOS), when the icon theme has a symbolic
+// version of the app's icon. Apps whose icon has none under its own name:
+static const QHash<QString, QString> symbolicFallbacks = {
+    {QStringLiteral("guake"), QStringLiteral("utilities-terminal-symbolic")},
+    {QStringLiteral("system-software-update"), QStringLiteral("software-update-available-symbolic")},
+};
+
+static QString symbolicIconName(const QString &iconName)
+{
+    if (iconName.isEmpty() || QGuiApplication::platformName() != QLatin1String("wayland"))
+        return QString();
+    if (iconName.endsWith(QLatin1String("-symbolic")))
+        return iconName;
+
+    const QStringList candidates = {iconName + QLatin1String("-symbolic"), symbolicFallbacks.value(iconName)};
+    for (const QString &name : candidates) {
+        if (!name.isEmpty() && QIcon::hasThemeIcon(name))
+            return name;
+    }
+    return QString();
+}
 
 SystemTrayModel::SystemTrayModel(QObject *parent)
     : QAbstractListModel(parent)
@@ -79,8 +103,10 @@ QVariant SystemTrayModel::data(const QModelIndex &index, int role) const
     switch (role) {
     case IdRole:
         return item->id();
-    case IconNameRole:
-        return item->iconName();
+    case IconNameRole: {
+        const QString symbolic = symbolicIconName(item->iconName());
+        return symbolic.isEmpty() ? item->iconName() : symbolic;
+    }
     case IconRole: {
         if (!item->icon().isNull())
             return item->icon();
@@ -92,7 +118,8 @@ QVariant SystemTrayModel::data(const QModelIndex &index, int role) const
     case ToolTipRole:
         return item->tooltip();
     case CanColorOverlay:
-        return item->isMonochrome() && !noColorOverlayList.contains(item->appId());
+        return !symbolicIconName(item->iconName()).isEmpty()
+                || (item->isMonochrome() && !noColorOverlayList.contains(item->appId()));
     }
 
     return QVariant();

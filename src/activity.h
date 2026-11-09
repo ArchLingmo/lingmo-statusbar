@@ -23,6 +23,8 @@
 #include <QObject>
 #include "capplications.h"
 
+class WindowBackend;
+
 class Activity : public QObject
 {
     Q_OBJECT
@@ -45,8 +47,6 @@ public:
     Q_INVOKABLE void toggleMaximize();
     Q_INVOKABLE void move();
 
-    bool isAcceptableWindow(quint64 wid);
-
 private slots:
     void onActiveWindowChanged();
 
@@ -60,6 +60,8 @@ signals:
 
 private:
     CApplications *m_cApps;
+    // X11 or Wayland (windowbackend.h)
+    WindowBackend *m_backend;
     QString m_title;
     QString m_icon;
     QString m_windowClass;

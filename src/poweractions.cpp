@@ -20,6 +20,8 @@
 #include "poweractions.h"
 #include <QCommandLineParser>
 #include <QDBusInterface>
+#include <QDBusMessage>
+#include <QDBusPendingCallWatcher>
 #include <QApplication>
 #include <QProcess>
 
@@ -59,6 +61,21 @@ void PowerActions::reboot()
 
 void PowerActions::lockScreen()
 {
+    // Wayland: the lock screen is KWin's (kscreenlocker with the Lingmo theme);
+    // lingmo-screenlocker is the X11 locker
+    if (qEnvironmentVariable("XDG_SESSION_TYPE") == QLatin1String("wayland")
+            || !qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY")) {
+        QDBusMessage message = QDBusMessage::createMethodCall("org.freedesktop.ScreenSaver", "/ScreenSaver",
+                                                              "org.freedesktop.ScreenSaver", "Lock");
+        auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(message), this);
+        connect(watcher, &QDBusPendingCallWatcher::finished, this, [](QDBusPendingCallWatcher *call) {
+            if (call->isError())
+                QProcess::startDetached("loginctl", {QStringLiteral("lock-session")});
+            call->deleteLater();
+        });
+        return;
+    }
+
     QProcess::startDetached("lingmo-screenlocker", QStringList());
 }
 

@@ -46,6 +46,17 @@ Window {
     x: StatusBar.screenRect.x + Math.round((StatusBar.screenRect.width - width) / 2)
     y: StatusBar.screenRect.y
 
+    // Wayland: over everything, centred at the top of the bar's screen (the x/y
+    // above, which KWin can't take from a client there); on top of the bar, so
+    // it ignores the bar's reserved room. Nothing changes on X11.
+    LingmoUI.LayerShell.layer: LingmoUI.LayerShell.LayerOverlay
+    LingmoUI.LayerShell.anchors: LingmoUI.LayerShell.AnchorTop
+    LingmoUI.LayerShell.exclusiveZone: -1
+    LingmoUI.LayerShell.keyboardInteractivity: LingmoUI.LayerShell.KeyboardNone
+    LingmoUI.LayerShell.activateOnShow: false
+    LingmoUI.LayerShell.scope: "lingmo-island"
+    LingmoUI.LayerShell.screen: StatusBar.screen
+
     LayoutMirroring.enabled: Qt.application.layoutDirection === Qt.RightToLeft
     LayoutMirroring.childrenInherit: true
 

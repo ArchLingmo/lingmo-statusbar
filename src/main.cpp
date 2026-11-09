@@ -45,7 +45,10 @@
 
 int main(int argc, char *argv[])
 {
-    qputenv("QT_QPA_PLATFORM", "xcb");
+    // X11 session: always through xcb, as before. In a Wayland session the bar is
+    // a native Wayland client (layer-shell panel), so nothing is forced there.
+    if (qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY"))
+        qputenv("QT_QPA_PLATFORM", "xcb");
     QApplication app(argc, argv);
 
     const char *uri = "Lingmo.StatusBar";
